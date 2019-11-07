@@ -26,6 +26,12 @@ const Consts = {
     BaseLayerLength:            8,
     VirtualChannelLayerLength:  16,
     VirtualChannelLayerVersion: 1,
+    BusinessLogicType: {
+        ONE_BYTE_DATA:      "solo",
+        RAW_BYTE_DATA:      "raw",
+        IMAGE_DATA:         "img",
+        CONTROL_DATA:       "ctrl",
+    },
 }
 
 module.exports = Consts

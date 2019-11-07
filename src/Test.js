@@ -9,7 +9,7 @@
 
 var Protocol = require('./Protocol')
 var Utils = require('./Utils')
-// // 1. 逻辑包
+// 1. 逻辑包
 // var basePacket = new Protocol.BaseLayerPacket(0x02, 0xee, 0x1234567)
 // var baseBuffer = Protocol.ProtocolSerializer.PackBaseLayer(basePacket)
 // console.log(JSON.stringify(basePacket, null, 2), '\n\n')
@@ -27,14 +27,29 @@ var Utils = require('./Utils')
 // console.log(JSON.stringify(vcPacketRe, null, 2), '\n\n')
 
 // 3. 逻辑包 + 虚拟通道包
+// var bizBuffer = new Uint8Array([3])
+// console.log(bizBuffer[0])
+// var vcPacket = new Protocol.VirtualChannelLayerPacket(0x04, 0xb5, 0x1314, "abc", bizBuffer.length)
+// var vcBuffer = Protocol.ProtocolSerializer.PackVirtualChannelLayer(vcPacket, bizBuffer)
+// console.log(JSON.stringify(vcPacket, null, 2), '\n\n')
+// var basePacket = new Protocol.BaseLayerPacket(0x02, 0xee, 0x1234567)
+// var baseBuffer = Protocol.ProtocolSerializer.PackBaseLayer(basePacket, vcBuffer)
+// console.log(Utils.FormatArrayBuffer(baseBuffer), '\n\n')
+// var basePacketRe = Protocol.ProtocolSerializer.UnpackBaseLayer(baseBuffer)
+// var vcPacketRe = Protocol.ProtocolSerializer.UnpackVirtualChannelLayer(baseBuffer, basePacketRe.length)
+// console.log(JSON.stringify(vcPacketRe, null, 2), '\n\n')
+
+// 4. 逻辑包 + 虚拟通道包 All
 var bizBuffer = new Uint8Array([3])
 console.log(bizBuffer[0])
 var vcPacket = new Protocol.VirtualChannelLayerPacket(0x04, 0xb5, 0x1314, "abc", bizBuffer.length)
 var vcBuffer = Protocol.ProtocolSerializer.PackVirtualChannelLayer(vcPacket, bizBuffer)
-console.log(JSON.stringify(vcPacket, null, 2), '\n\n')
+// console.log(JSON.stringify(vcPacket, null, 2), '\n\n')
 var basePacket = new Protocol.BaseLayerPacket(0x02, 0xee, 0x1234567)
 var baseBuffer = Protocol.ProtocolSerializer.PackBaseLayer(basePacket, vcBuffer)
 console.log(Utils.FormatArrayBuffer(baseBuffer), '\n\n')
-var basePacketRe = Protocol.ProtocolSerializer.UnpackBaseLayer(baseBuffer)
-var vcPacketRe = Protocol.ProtocolSerializer.UnpackVirtualChannelLayer(baseBuffer, basePacketRe.length)
-console.log(JSON.stringify(vcPacketRe, null, 2), '\n\n')
+// var basePacketRe = Protocol.ProtocolSerializer.UnpackBaseLayer(baseBuffer)
+// var vcPacketRe = Protocol.ProtocolSerializer.UnpackVirtualChannelLayer(baseBuffer, basePacketRe.length)
+// console.log(JSON.stringify(vcPacketRe, null, 2), '\n\n')
+var allLayers = Protocol.ProtocolSerializer.UnpackAll(baseBuffer)
+console.log(JSON.stringify(allLayers, null, 2), '\n\n')

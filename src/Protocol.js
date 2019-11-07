@@ -44,6 +44,19 @@ class VirtualChannelLayerPacket {
 }
 
 /**
+ * Sample Business Layer Struct
+ */
+class BusinessLayerSamplePacket {
+    /**
+     * Constructor of BusinessLayerSamplePacket
+     * @param {byte} onebyteData one byte long sample data
+     */
+    constructor(onebyteData = 0x00) {
+        this.data = onebyteData
+    }
+}
+
+/**
  * Pack & Unpack RGP Protocol Bytes, using network order
  */
 class ProtocolSerializer {
@@ -188,6 +201,104 @@ class ProtocolSerializer {
         } else {
             return vChannelLayerBuffer.buffer
         }
+    }
+
+    /**
+     * Pack business logic layer into bytes
+     * @param {Object} businessPacket business struct
+     * @returns {ArrayBuffer} raw bytes of business logic layer
+     */
+    static PackBusinessLogicLayer(businessPacket) {
+        
+    }
+
+    /**
+     * Unpack bytes into business struct
+     * @param {ArrayBuffer} arrayBuffer raw bytes of business logic layer
+     * @param {int} offset offset to the start position of business logic layer
+     * @returns {Object} business struct
+     */
+    static UnpackBusinessLogicLayer(arrayBuffer, offset = 0) {
+
+    }
+
+    static UnpackAll(arrayBuffer) {
+        // check object type
+        if (!arrayBuffer instanceof ArrayBuffer) {
+            console.error("param not instance of ArrayBuffer")
+            return null
+        }
+
+        // wrap raw arraybuffer with offset 
+        // var protocolBuffer = Utils.WrapArrayBuffer(arrayBuffer)
+        var layerArray = []
+        var previousLayer = null
+        
+        // 1. unpack base layer
+        var baseLayerPacket = ProtocolSerializer.UnpackBaseLayer(arrayBuffer, 0)
+        if (!baseLayerPacket) {
+            console.error("invalid base layer packet")
+            return layerArray
+        }
+        layerArray.push(baseLayerPacket)
+        if (baseLayerPacket.proto == Enums.Proto.NONE_LAYER) {
+            // no next layer
+            return layerArray
+        }
+
+        // 2. unpack data verify layer (skip)
+        previousLayer = baseLayerPacket 
+        if (previousLayer.proto == Enums.Proto.VERIFY_LAYER) {
+            // not implemented
+            console.warn("verify layer not implemented")
+            return layerArray
+        }
+        // var dataVerifyPacket = ...
+        // layerArray.push(dataVerifyPacket)
+        // if (dataVerifyPacket.proto == Enums.Proto.NONE_LAYER) {
+        //     // no next layer
+        //     return layerArray
+        // }
+
+        // 3. unpack virtual channel layer
+        previousLayer = previousLayer
+        if (previousLayer.proto != Enums.Proto.VIRTUAL_CHANNEL_LAYER) {
+            console.error("3rd layer should be virtual channel layer")
+            return layerArray
+        }
+        var virtualChannelPacket = ProtocolSerializer.UnpackVirtualChannelLayer(arrayBuffer, previousLayer.length)
+        if (!virtualChannelPacket) {
+            console.error("invalid virtual channel packet")
+            return layerArray
+        }
+        layerArray.push(virtualChannelPacket)
+        if (virtualChannelPacket.proto == Enums.Proto.NONE_LAYER) {
+            return layerArray
+        }
+
+        // 4. unpack en/decrypt layer (skip)
+        previousLayer = virtualChannelPacket
+        if (previousLayer.proto == Enums.Proto.ENCRYPT_LAYER) {
+            // not implemented
+            console.warn("encrypt layer not implemented")
+            return layerArray
+        }
+        // var encryptPacket = ...
+        // layerArray.push(encryptPacket)
+        // if (encryptPacket.proto == Enums.Proto.NONE_LAYER) {
+        //     // no next layer
+        //     return layerArray
+        // }
+
+        // 5. unpack business logic layer
+        previousLayer = previousLayer
+        if (previousLayer.proto != Enums.Proto.BUSINESS_LOGIC_LAYER) {
+            console.error("5th layer should be business logic layer")
+            return layerArray
+        }
+        // var bizPacket = ...
+        // layerArray.push(bizPacket)
+        return layerArray
     }
 }
 
