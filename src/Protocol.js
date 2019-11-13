@@ -16,7 +16,7 @@ class BaseLayerPacket {
         this.proto = Math.floor(siblingProto)
         this.command = Math.floor(command)
         this.connectionID = Math.floor(connectionID)
-        this.length = Enums.BaseLayerLength
+        this.length = Enums.FixedLength.BASE_LAYER
     }
 }
 
@@ -30,29 +30,41 @@ class VirtualChannelLayerPacket {
      * @param {int} command commmand of virtual channel
      * @param {int} virtualChannelID virtual channel id
      * @param {string} remark four letter remark of this channel
-     * @param {int} payloadLength length of payload
      */
-    constructor(siblingProto = 0x00, command = 0x00, virtualChannelID = 0xffff, 
-        remark = "", payloadLength = 0x00){
-            this.proto = Math.floor(siblingProto)
-            this.command = Math.floor(command)
-            this.virtualChannelID = Math.floor(virtualChannelID)
-            this.remark = String(remark)
-            this.payloadLength = Math.floor(payloadLength)
-            this.length = Enums.VirtualChannelLayerLength
+    constructor(siblingProto = 0x00, command = 0x00, virtualChannelID = 0xffff, remark = ""){
+        this.proto = Math.floor(siblingProto)
+        this.command = Math.floor(command)
+        this.virtualChannelID = Math.floor(virtualChannelID)
+        this.remark = String(remark)
+        this.length = Enums.FixedLength.VIRTUAL_CHANNEL_LAYER
+    }
+}
+
+/**
+ * Template of all business packets
+ */
+class BusinessLayerPacketTemplate {
+    constructor(bizLogicType = 0x00, payloadLength = 0x00) {
+        this.bizLogic = bizLogicType
+        this.payloadLength = payloadLength
     }
 }
 
 /**
  * Sample Business Layer Struct
  */
-class BusinessLayerSamplePacket {
+class BizOneBytePacket extends BusinessLayerPacketTemplate{
     /**
-     * Constructor of BusinessLayerSamplePacket
-     * @param {byte} onebyteData one byte long sample data
+     * Constructor of BizOneBytePacket
+     * @param {int} onebyteData one byte long sample data, range [0,255)
      */
     constructor(onebyteData = 0x00) {
+        super(Enums.BusinessLogicType.ONE_BYTE_DATA, 1)
         this.data = onebyteData
+        if (this.data > 255 || this.data < 0) {
+            console.warn("data must be truncated to fit in one byte space")
+            this.data = onebyteData & 0xff
+        }
     }
 }
 
@@ -74,7 +86,7 @@ class ProtocolSerializer {
         }
 
         // wrap raw arraybuffer with offset 
-        var baseLayerBuffer = Utils.WrapArrayBuffer(arrayBuffer, offset, Enums.BaseLayerLength)
+        var baseLayerBuffer = Utils.WrapArrayBuffer(arrayBuffer, offset, Enums.FixedLength.BASE_LAYER)
 
         // check magic number
         if (magic != (baseLayerBuffer[0] << 8) + baseLayerBuffer[1]) {
@@ -98,7 +110,7 @@ class ProtocolSerializer {
      * @returns {ArrayBuffer} raw bytes of base layer
      */
     static PackBaseLayer(baseLayerPacket, siblingLayerBuffer = null) {
-        var baseLayerBuffer = new Uint8Array(Enums.BaseLayerLength)
+        var baseLayerBuffer = new Uint8Array(Enums.FixedLength.BASE_LAYER)
         // check object type
         if (!baseLayerPacket instanceof BaseLayerPacket) {
             console.error("param not instance of BaseLayerPacket")
@@ -155,10 +167,10 @@ class ProtocolSerializer {
         remarkBuffer[2] = vChannelLayerBuffer[10]
         remarkBuffer[3] = vChannelLayerBuffer[11]
         vChannelLayerPacket.remark = remarkBuffer.toString('ascii').replace('\u0000','')
-        vChannelLayerPacket.payloadLength = (vChannelLayerBuffer[12] << 24) +
-            (vChannelLayerBuffer[13] << 16) + (vChannelLayerBuffer[14] << 8) +
-            (vChannelLayerBuffer[15])
-        vChannelLayerPacket.length = Enums.VirtualChannelLayerLength
+        // vChannelLayerPacket.payloadLength = (vChannelLayerBuffer[12] << 24) +
+        //     (vChannelLayerBuffer[13] << 16) + (vChannelLayerBuffer[14] << 8) +
+        //     (vChannelLayerBuffer[15])
+        vChannelLayerPacket.length = Enums.FixedLength.VIRTUAL_CHANNEL_LAYER
         return vChannelLayerPacket
     }
 
@@ -173,10 +185,10 @@ class ProtocolSerializer {
         if (!virtualChannelLayerPacket instanceof VirtualChannelLayerPacket) {
             return new Uint8Array(0).buffer
         }
-        var vChannelLayerBuffer = new Uint8Array(Enums.VirtualChannelLayerLength)
+        var vChannelLayerBuffer = new Uint8Array(Enums.FixedLength.VIRTUAL_CHANNEL_LAYER)
         // fill version, fixed length, proto & command
         vChannelLayerBuffer[0] = Enums.VirtualChannelLayerVersion
-        vChannelLayerBuffer[1] = Enums.VirtualChannelLayerLength
+        vChannelLayerBuffer[1] = Enums.FixedLength.VIRTUAL_CHANNEL_LAYER
         vChannelLayerBuffer[2] = virtualChannelLayerPacket.proto
         vChannelLayerBuffer[3] = virtualChannelLayerPacket.command
         // fill virtual channel & reserved field
@@ -189,11 +201,6 @@ class ProtocolSerializer {
         for (var i = 0; i < Math.min(remarkBuffer.length, 4); i++) {
             vChannelLayerBuffer[8 + i] = remarkBuffer[i]
         }
-        // fill payload length
-        vChannelLayerBuffer[12] = (siblingLayerBuffer.length & 0xff000000) >> 24
-        vChannelLayerBuffer[13] = (siblingLayerBuffer.length & 0x00ff0000) >> 16
-        vChannelLayerBuffer[14] = (siblingLayerBuffer.length & 0x0000ff00) >> 8
-        vChannelLayerBuffer[15] = (siblingLayerBuffer.length & 0x000000ff)
         // append siblings
         if (siblingLayerBuffer != null && (siblingLayerBuffer instanceof ArrayBuffer ||
             siblingLayerBuffer.buffer instanceof ArrayBuffer)) {
@@ -209,6 +216,24 @@ class ProtocolSerializer {
      * @returns {ArrayBuffer} raw bytes of business logic layer
      */
     static PackBusinessLogicLayer(businessPacket) {
+        var bizLayerBuffer = new Uint8Array(Enums.FixedLength.BUSINESS_HEADER + businessPacket.payloadLength)
+        // check object type
+        if (!businessPacket instanceof BusinessLayerPacketTemplate) {
+            console.error("param not instance of BusinessLayerPacketTemplate")
+            return bizLayerBuffer.buffer
+        }
+        // fill business header
+        bizLayerBuffer[0] = (businessPacket.bizLogic & 0xff00) >> 8
+        bizLayerBuffer[1] = (businessPacket.bizLogic & 0x00ff)
+        // fill reserved
+        bizLayerBuffer[2] = 0x00
+        bizLayerBuffer[3] = 0x00
+        // fill payload length
+        bizLayerBuffer[4] = (businessPacket.payloadLength & 0xff000000) >> 24
+        bizLayerBuffer[5] = (businessPacket.payloadLength & 0x00ff0000) >> 16
+        bizLayerBuffer[6] = (businessPacket.payloadLength & 0x0000ff00) >> 8
+        bizLayerBuffer[7] = (businessPacket.payloadLength & 0x000000ff)
+        // fill data
         
     }
 

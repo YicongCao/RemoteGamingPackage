@@ -42,7 +42,7 @@ var Utils = require('./Utils')
 // 4. 逻辑包 + 虚拟通道包 All
 var bizBuffer = new Uint8Array([3])
 console.log(bizBuffer[0])
-var vcPacket = new Protocol.VirtualChannelLayerPacket(0x04, 0xb5, 0x1314, "abc", bizBuffer.length)
+var vcPacket = new Protocol.VirtualChannelLayerPacket(0x04, 0xb5, 0x1314, "abc")
 var vcBuffer = Protocol.ProtocolSerializer.PackVirtualChannelLayer(vcPacket, bizBuffer)
 // console.log(JSON.stringify(vcPacket, null, 2), '\n\n')
 var basePacket = new Protocol.BaseLayerPacket(0x02, 0xee, 0x1234567)

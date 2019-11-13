@@ -23,15 +23,26 @@ const Consts = {
         DATA_TRANSMISSION:  0xee,
         HEART_BEAT:         0xff,
     },
-    BaseLayerLength:            8,
-    VirtualChannelLayerLength:  16,
+    FixedLength: {
+        BASE_LAYER:             8,
+        VERIFY_LAYER:           4,
+        ENCRYPT_LAYER:          0,
+        VIRTUAL_CHANNEL_LAYER:  12,
+        BUSINESS_HEADER:        8,
+    },
     VirtualChannelLayerVersion: 1,
-    BusinessLogicType: {
+    BusinessLogicRemark: {
         ONE_BYTE_DATA:      "solo",
         RAW_BYTE_DATA:      "raw",
         IMAGE_DATA:         "img",
         CONTROL_DATA:       "ctrl",
     },
+    BusinessLogicType: {
+        ONE_BYTE_DATA:      1,
+        RAW_BYTE_DATA:      2,
+        IMAGE_DATA:         3,
+        CONTROL_DATA:       4,
+    }
 }
 
 module.exports = Consts
