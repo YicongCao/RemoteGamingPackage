@@ -66,6 +66,17 @@ class BizOneBytePacket extends BusinessLayerPacketTemplate{
             this.data = onebyteData & 0xff
         }
     }
+
+    serialize() {
+        var baseBuffer = new Uint8Array(1)
+        baseBuffer[0] = this.data
+        return baseBuffer.buffer
+    }
+
+    unserialize(arrayBuffer) {
+        var baseBuffer = new Uint8Array(arrayBuffer)
+        this.data = baseBuffer[0]
+    }
 }
 
 /**
@@ -210,6 +221,41 @@ class ProtocolSerializer {
         }
     }
 
+
+    /**
+     * Unpack bytes into business struct
+     * @param {ArrayBuffer} arrayBuffer raw bytes of business logic layer
+     * @param {int} offset offset to the start position of business logic layer
+     * @returns {Object} business struct
+     */
+    static UnpackBusinessLogicLayer(arrayBuffer, offset = 0) {
+        // check object type
+        if (!arrayBuffer instanceof ArrayBuffer) {
+            console.error("param not instance of ArrayBuffer")
+            return null
+        }
+        
+        // wrap raw arraybuffer with offset 
+        var vBizLayerBuffer = Utils.WrapArrayBuffer(arrayBuffer, offset)
+
+        // retrieve biz type & payload length
+        var bizLogicType = (vBizLayerBuffer[0] << 8) + vBizLayerBuffer[1]
+        var payloadLength = (vBizLayerBuffer[4] << 24) + (vBizLayerBuffer[5] << 16) +
+            (vBizLayerBuffer[6] << 8) + (vBizLayerBuffer[7])
+        var payloadBuffer = Utils.WrapArrayBuffer(arrayBuffer, offset + Enums.FixedLength.BUSINESS_HEADER)
+
+        // construct biz logic packet
+        switch(bizLogicType) {
+            case Enums.BusinessLogicType.ONE_BYTE_DATA:
+                var bizOneBytePacket = new BizOneBytePacket()
+                bizOneBytePacket.unserialize(payloadBuffer.buffer)
+                return bizOneBytePacket
+            default:
+                console.error("unknown biz logic type:", bizLogicType)
+                return null
+        }
+    }
+
     /**
      * Pack business logic layer into bytes
      * @param {Object} businessPacket business struct
@@ -234,17 +280,12 @@ class ProtocolSerializer {
         bizLayerBuffer[6] = (businessPacket.payloadLength & 0x0000ff00) >> 8
         bizLayerBuffer[7] = (businessPacket.payloadLength & 0x000000ff)
         // fill data
-        
-    }
-
-    /**
-     * Unpack bytes into business struct
-     * @param {ArrayBuffer} arrayBuffer raw bytes of business logic layer
-     * @param {int} offset offset to the start position of business logic layer
-     * @returns {Object} business struct
-     */
-    static UnpackBusinessLogicLayer(arrayBuffer, offset = 0) {
-
+        var bizBinaryBuffer = businessPacket.serialize()
+        var bizByteBuffer = new Uint8Array(bizBinaryBuffer)
+        for (var i = 0; i < Math.min(bizByteBuffer.byteLength, businessPacket.payloadLength); i++) {
+            bizLayerBuffer[8 + i] = bizByteBuffer[i]
+        }
+        return bizLayerBuffer.buffer
     }
 
     static UnpackAll(arrayBuffer) {
@@ -258,9 +299,11 @@ class ProtocolSerializer {
         // var protocolBuffer = Utils.WrapArrayBuffer(arrayBuffer)
         var layerArray = []
         var previousLayer = null
+        var offset = 0
         
         // 1. unpack base layer
-        var baseLayerPacket = ProtocolSerializer.UnpackBaseLayer(arrayBuffer, 0)
+        var baseLayerPacket = ProtocolSerializer.UnpackBaseLayer(arrayBuffer, offset)
+        offset += baseLayerPacket.length
         if (!baseLayerPacket) {
             console.error("invalid base layer packet")
             return layerArray
@@ -279,6 +322,7 @@ class ProtocolSerializer {
             return layerArray
         }
         // var dataVerifyPacket = ...
+        offset += 0
         // layerArray.push(dataVerifyPacket)
         // if (dataVerifyPacket.proto == Enums.Proto.NONE_LAYER) {
         //     // no next layer
@@ -291,7 +335,8 @@ class ProtocolSerializer {
             console.error("3rd layer should be virtual channel layer")
             return layerArray
         }
-        var virtualChannelPacket = ProtocolSerializer.UnpackVirtualChannelLayer(arrayBuffer, previousLayer.length)
+        var virtualChannelPacket = ProtocolSerializer.UnpackVirtualChannelLayer(arrayBuffer, offset)
+        offset += virtualChannelPacket.length
         if (!virtualChannelPacket) {
             console.error("invalid virtual channel packet")
             return layerArray
@@ -309,6 +354,7 @@ class ProtocolSerializer {
             return layerArray
         }
         // var encryptPacket = ...
+        offset += 0
         // layerArray.push(encryptPacket)
         // if (encryptPacket.proto == Enums.Proto.NONE_LAYER) {
         //     // no next layer
@@ -321,8 +367,14 @@ class ProtocolSerializer {
             console.error("5th layer should be business logic layer")
             return layerArray
         }
-        // var bizPacket = ...
-        // layerArray.push(bizPacket)
+        var bizPacket = ProtocolSerializer.UnpackBusinessLogicLayer(arrayBuffer, offset)
+        offset += bizPacket.length
+        if (!bizPacket) {
+            console.error("invalid business logic packet")
+            return layerArray
+        }
+        layerArray.push(bizPacket)
+        // no next layer
         return layerArray
     }
 }
@@ -332,4 +384,5 @@ module.exports = {
     ProtocolSerializer: ProtocolSerializer,
     BaseLayerPacket: BaseLayerPacket,
     VirtualChannelLayerPacket: VirtualChannelLayerPacket,
+    BizOneBytePacket: BizOneBytePacket,
 }

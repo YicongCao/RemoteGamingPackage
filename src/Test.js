@@ -40,8 +40,8 @@ var Utils = require('./Utils')
 // console.log(JSON.stringify(vcPacketRe, null, 2), '\n\n')
 
 // 4. 逻辑包 + 虚拟通道包 All
-var bizBuffer = new Uint8Array([3])
-console.log(bizBuffer[0])
+var bizPacket = new Protocol.BizOneBytePacket(3)
+var bizBuffer = Protocol.ProtocolSerializer.PackBusinessLogicLayer(bizPacket)
 var vcPacket = new Protocol.VirtualChannelLayerPacket(0x04, 0xb5, 0x1314, "abc")
 var vcBuffer = Protocol.ProtocolSerializer.PackVirtualChannelLayer(vcPacket, bizBuffer)
 // console.log(JSON.stringify(vcPacket, null, 2), '\n\n')
