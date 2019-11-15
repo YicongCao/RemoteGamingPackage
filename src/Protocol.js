@@ -288,6 +288,11 @@ class ProtocolSerializer {
         return bizLayerBuffer.buffer
     }
 
+    /**
+     * Unpack every layer of one RGP packet
+     * @param {ArrayBuffer} arrayBuffer raw RGP bytes
+     * @returns {Array} representation of RGP packet struct
+     */
     static UnpackAll(arrayBuffer) {
         // check object type
         if (!arrayBuffer instanceof ArrayBuffer) {
@@ -376,6 +381,28 @@ class ProtocolSerializer {
         layerArray.push(bizPacket)
         // no next layer
         return layerArray
+    }
+
+    /**
+     * Unpack every layer of one RGP packet
+     * @param {ArrayBuffer} arrayBuffer raw RGP bytes
+     * @returns {Map} representation of RGP packet struct
+     */
+    static UnpackAllAsMap(arrayBuffer) {
+        var layerArray = ProtocolSerializer.UnpackAll(arrayBuffer)
+        var layerMap = {}
+        layerArray.forEach((layer)=>{
+            if (layer instanceof BaseLayerPacket) {
+                layerMap[Enums.ProtoName.BASE_LAYER] = layer
+            } else if (layer instanceof VirtualChannelLayerPacket) {
+                layerMap[Enums.ProtoName.VIRTUAL_CHANNEL_LAYER] = layer
+            } else if (layer instanceof BusinessLayerPacketTemplate) {
+                layerMap[Enums.ProtoName.BUSINESS_LOGIC_LAYER] = layer
+            } else {
+                layerMap[Enums.ProtoName.NONE_LAYER] = layer
+            }
+        })
+        return layerMap
     }
 }
 

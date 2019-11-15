@@ -9,11 +9,21 @@ const Consts = {
     },
     Proto: {
         NONE_LAYER:             0,
+        BASE_LAYER:             0,
         VERIFY_LAYER:           1,
         VIRTUAL_CHANNEL_LAYER:  2,
         ENCRYPT_LAYER:          3,
         BUSINESS_LOGIC_LAYER:   4,
     },
+    ProtoName: {
+        NONE_LAYER:             "invalid_layer",
+        BASE_LAYER:             "base_layer",
+        VERIFY_LAYER:           "verify_layer",
+        VIRTUAL_CHANNEL_LAYER:  "virtual_channel_layer",
+        ENCRYPT_LAYER:          "encrypt_layer",
+        BUSINESS_LOGIC_LAYER:   "business_logic_layer",
+    }
+    ,
     BaseLayerCommand: {
         CLIENT_ACQUIRE:     0xaa,
         SERVER_CONFIRM:     0xbb,
