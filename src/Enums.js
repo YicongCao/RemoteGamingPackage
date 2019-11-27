@@ -1,11 +1,10 @@
 const Consts = {
     Status: {
         INVALID:        0,
-        UNCONNECTED:    1,
-        UNCONFIRMED:    2,
-        CONNECTED:      3,
-        HUNG:           4,
-        REJECTED:       5,
+        UNCONFIRMED:    1,
+        CONNECTED:      2,
+        HUNG:           3,
+        REJECTED:       4,
     },
     Proto: {
         NONE_LAYER:             0,
@@ -52,6 +51,11 @@ const Consts = {
         RAW_BYTE_DATA:      2,
         IMAGE_DATA:         3,
         CONTROL_DATA:       4,
+    },
+    ErrorCodes: {
+        SUCCEEDED:                  0,
+        UNSUPPORTED_COMMAND:        1,
+        SERVER_REJECTED:            2,
     }
 }
 
