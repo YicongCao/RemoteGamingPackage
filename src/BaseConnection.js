@@ -57,6 +57,16 @@ class BaseConnection {
             }
             this._process(e, callbackMap)
         }.bind(this))
+
+        this.conn.on('error', function _onclienterr(e) {
+            this.status = Enums.Status.HUNG
+            console.error("rgp conn error:", e)
+        }.bind(this))
+
+        this.conn.on('close', function _onclienterr(e) {
+            this.status = Enums.Status.CLOSED
+            console.error("rgp conn closed:", e)
+        }.bind(this))
     }
 
     /**
@@ -97,6 +107,16 @@ class BaseConnection {
                 }
             }
             this._process(e, callbackMap)
+        }.bind(this))
+
+        this.conn.on('error', function _onclienterr(e) {
+            this.status = Enums.Status.HUNG
+            console.error("rgp conn error:", e)
+        }.bind(this))
+
+        this.conn.on('close', function _onclienterr(e) {
+            this.status = Enums.Status.CLOSED
+            console.error("rgp conn closed:", e)
         }.bind(this))
     }
 

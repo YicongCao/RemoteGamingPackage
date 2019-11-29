@@ -5,6 +5,7 @@ const Consts = {
         CONNECTED:      2,
         HUNG:           3,
         REJECTED:       4,
+        CLOSED:         5,
     },
     Proto: {
         NONE_LAYER:             0,
