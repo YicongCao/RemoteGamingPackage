@@ -17,7 +17,7 @@ class RGPModelServer {
 
         this.wss.on('connection', function connection(ws) {
             var client = new BaseConnection()
-            client.onconnectreq(ws, ++this.connindex)
+            client.confirm(ws, ++this.connindex)
         }.bind(this))
     }
 }

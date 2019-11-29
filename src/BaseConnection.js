@@ -74,7 +74,7 @@ class BaseConnection {
      * @param {WebSocket} ws websocket instance created by server
      * @param {int} clientID conn id that identifies different clients
      */
-    onconnectreq(ws, clientID) {
+    confirm(ws, clientID) {
         if (!this._setconn(ws, clientID)) {
             return
         }
