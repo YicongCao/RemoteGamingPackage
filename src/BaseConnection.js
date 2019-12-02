@@ -3,6 +3,8 @@ const WebSocket = require('ws')
 const Protocol = require('./Protocol')
 const EventArgs = require('./EventArgs')
 const invalidConnID = 0xffffffff
+const roleClient = "client"
+const roleServer = "server"
 
 class BaseConnection {
     constructor() {
@@ -10,6 +12,7 @@ class BaseConnection {
         this.conn = null
         this.connid = invalidConnID
         this.status = Enums.Status.INVALID
+        this._role = ""
         // callbacks
         this.onconnectreq = null    // server
         this.onconnected = null     // client
@@ -24,6 +27,7 @@ class BaseConnection {
      * @param {string} url target url, e.g. ws://localhost:7667
      */
     connect(url) {
+        this._role = roleClient
         if (!this._setconn(new WebSocket(url))) {
             return
         }
@@ -38,30 +42,7 @@ class BaseConnection {
         }.bind(this))
 
         this.conn.on('message', function _onclientmsg(e) {
-            var callbackMap = new Map()
-            callbackMap[Enums.Status.UNCONFIRMED] = (rgpPacketMap) => {
-                var basePacket = rgpPacketMap[Enums.ProtoName.BASE_LAYER]
-                switch (basePacket.command) {
-                    case Enums.BaseLayerCommand.SERVER_CONFIRM:
-                        this.status = Enums.Status.CONNECTED
-                        this.connid = basePacket.connectionID
-                        console.log("rgp conn confirmed, connid:", this.connid)
-                        if (this.onconnected) {
-                            var onConnectedEvent = new EventArgs.OnConnectedEvent(this)
-                            this.onconnected(onConnectedEvent)
-                        }
-                        return Enums.ErrorCodes.SUCCEEDED
-                    case Enums.BaseLayerCommand.SERVER_REJECT:
-                        this.status = Enums.Status.REJECTED
-                        console.error("rgp conn denied by server")
-                        return Enums.ErrorCodes.SERVER_REJECTED
-                    default:
-                        this.status = Enums.Status.HUNG
-                        console.error("illegal command when conn unconfirmed")
-                        return Enums.ErrorCodes.UNSUPPORTED_COMMAND
-                }
-            }
-            this._process(e, callbackMap)
+            this._process(e)
         }.bind(this))
 
         this.conn.on('error', function _onclienterr(e) {
@@ -91,52 +72,13 @@ class BaseConnection {
      * @param {int} clientID conn id that identifies different clients
      */
     wait(ws, clientID = invalidConnID) {
+        this._role = roleServer
         if (!this._setconn(ws, clientID)) {
             return
         }
 
         this.conn.on('message', function _onservermsg(e) {
-            var callbackMap = new Map()
-            callbackMap[Enums.Status.UNCONFIRMED] = (rgpPacketMap) => {
-                var basePacket = rgpPacketMap[Enums.ProtoName.BASE_LAYER]
-                switch (basePacket.command) {
-                    case Enums.BaseLayerCommand.CLIENT_ACQUIRE:
-                        var accept = this.connid && this.connid != invalidConnID
-                        if (this.onconnectreq) {
-                            var onConfirmEvent = new EventArgs.OnConfirmEvent(this)
-                            this.onconnectreq(onConfirmEvent)
-                            this.connid = onConfirmEvent.connid
-                            accept = onConfirmEvent.allow
-                        }
-                        var resp = null
-                        if (accept) {
-                            this.status = Enums.Status.CONNECTED
-                            var rgpBaseLayerPacket = new Protocol.BaseLayerPacket(Enums.Proto.NONE_LAYER, 
-                                Enums.BaseLayerCommand.SERVER_CONFIRM, this.connid)
-                            var resp = Protocol.ProtocolSerializer.PackBaseLayer(rgpBaseLayerPacket)
-                            console.log("rgp conn confirmed, connid:", this.connid)
-                        } else {
-                            this.status = Enums.Status.REJECTED
-                            var rgpBaseLayerPacket = new Protocol.BaseLayerPacket(Enums.Proto.NONE_LAYER, 
-                                Enums.BaseLayerCommand.SERVER_REJECT, this.connid)
-                            var resp = Protocol.ProtocolSerializer.PackBaseLayer(rgpBaseLayerPacket)
-                            console.error("rgp conn denied by server")
-                        }
-                        this._sendraw(resp)
-                        if (accept) {
-                            if (this.onconnected) {
-                                var onConnectedEvent = new EventArgs.OnConnectedEvent(this)
-                                this.onconnected(onConnectedEvent)
-                            }
-                        } else {
-                            this.conn.close()
-                        }
-                        return Enums.ErrorCodes.SUCCEEDED
-                    default:
-                        return Enums.ErrorCodes.UNSUPPORTED_COMMAND
-                }
-            }
-            this._process(e, callbackMap)
+            this._process(e)
         }.bind(this))
 
         this.conn.on('error', function _onclienterr(e) {
@@ -158,6 +100,118 @@ class BaseConnection {
                 this.onclose(onCloseEvent)
             }
         }.bind(this))
+    }
+
+    createVirtualChannel(virtualChannelCallback, remark = "") {
+
+    }
+
+    _processBaseLayer(basePacket) {
+        var nextLayer = Enums.Proto.NONE_LAYER
+        var result = Enums.ErrorCodes.SUCCEEDED
+        do { 
+            if (!(basePacket instanceof Protocol.BaseLayerPacket)) {
+                result = Enums.ErrorCodes.PARAM_INVALID
+                break
+            }
+            nextLayer = basePacket.proto
+            if (this.status == Enums.Status.UNCONFIRMED) {
+                if (this._role == roleClient) {
+                    result = this._onBaseconnConfirmed(basePacket)
+                } else if (this._role == roleServer) {
+                    result = this._onBaseconnRequiring(basePacket)
+                } else {
+                    result = Enums.ErrorCodes.UNKNOWN_ROLE
+                }
+                break
+            } else if (this.status == Enums.Status.CONNECTED) {
+                // todo: close connected connection
+                break
+            } else {
+                console.warn("unsupported status processing:", this.status)
+                result = Enums.ErrorCodes.UNSUPPORTED_STATUS
+                break
+            }
+        } while (false)
+        console.log("base layer proc ret:", result, "next layer:", nextLayer)
+        return nextLayer
+    }
+
+    _processVirtualChannelLayer(vchanPacket) {
+        var vchanPacket = rgpPacketMap[Enums.ProtoName.VIRTUAL_CHANNEL_LAYER]
+        switch (vchanPacket.command) {
+            case Enums.VirtualChannelLayerCommand.CHANNEL_ACQUIRE:
+                break
+            case Enums.VirtualChannelLayerCommand.CHANNEL_CONFIRM_ACQUIRE:
+                break
+            case Enums.VirtualChannelLayerCommand.CHANNEL_DATA_TRANSMISSION:
+                break
+            default:
+                break
+        }
+    }
+
+    _onBaseconnRequiring(basePacket) {
+        // var basePacket = rgpPacketMap[Enums.ProtoName.BASE_LAYER]
+        switch (basePacket.command) {
+            case Enums.BaseLayerCommand.CLIENT_ACQUIRE:
+                var accept = this.connid && this.connid != invalidConnID
+                if (this.onconnectreq) {
+                    var onConfirmEvent = new EventArgs.OnConfirmEvent(this)
+                    this.onconnectreq(onConfirmEvent)
+                    this.connid = onConfirmEvent.connid
+                    accept = onConfirmEvent.allow
+                }
+                var resp = null
+                if (accept) {
+                    this.status = Enums.Status.CONNECTED
+                    var rgpBaseLayerPacket = new Protocol.BaseLayerPacket(Enums.Proto.NONE_LAYER,
+                        Enums.BaseLayerCommand.SERVER_CONFIRM, this.connid)
+                    var resp = Protocol.ProtocolSerializer.PackBaseLayer(rgpBaseLayerPacket)
+                    console.log("rgp conn confirmed, connid:", this.connid)
+                } else {
+                    this.status = Enums.Status.REJECTED
+                    var rgpBaseLayerPacket = new Protocol.BaseLayerPacket(Enums.Proto.NONE_LAYER,
+                        Enums.BaseLayerCommand.SERVER_REJECT, this.connid)
+                    var resp = Protocol.ProtocolSerializer.PackBaseLayer(rgpBaseLayerPacket)
+                    console.error("rgp conn denied by server")
+                }
+                this._sendraw(resp)
+                if (accept) {
+                    if (this.onconnected) {
+                        var onConnectedEvent = new EventArgs.OnConnectedEvent(this)
+                        this.onconnected(onConnectedEvent)
+                    }
+                } else {
+                    this.conn.close()
+                }
+                return Enums.ErrorCodes.SUCCEEDED
+            default:
+                return Enums.ErrorCodes.UNSUPPORTED_COMMAND
+        }
+    }
+
+    _onBaseconnConfirmed(basePacket) {
+        // var basePacket = rgpPacketMap[Enums.ProtoName.BASE_LAYER]
+        switch (basePacket.command) {
+            case Enums.BaseLayerCommand.SERVER_CONFIRM:
+                this.status = Enums.Status.CONNECTED
+                this.connid = basePacket.connectionID
+                console.log("rgp conn confirmed, connid:", this.connid)
+                if (this.onconnected) {
+                    var onConnectedEvent = new EventArgs.OnConnectedEvent(this)
+                    this.onconnected(onConnectedEvent)
+                }
+                return Enums.ErrorCodes.SUCCEEDED
+            case Enums.BaseLayerCommand.SERVER_REJECT:
+                this.status = Enums.Status.REJECTED
+                console.error("rgp conn denied by server")
+                return Enums.ErrorCodes.SERVER_REJECTED
+            default:
+                this.status = Enums.Status.HUNG
+                console.error("illegal command when conn unconfirmed")
+                return Enums.ErrorCodes.UNSUPPORTED_COMMAND
+        }
     }
 
     _setconn(ws, connidPara = invalidConnID) {
@@ -182,25 +236,28 @@ class BaseConnection {
         this.conn.send(arrayBuffer)
     }
 
-    _process(data, callbackMap) {
+    _process(data) {
         if (!(data instanceof ArrayBuffer)) {
             console.error("data received not arraybuffer")
             return
         }
         console.log("received", data.byteLength, "byte long data")
-        if (!(callbackMap instanceof Map)) {
-            console.error("illegal callbackmap")
-            return
-        }
-        if (!callbackMap[this.status]) {
-            console.error("callback unimplenmented for status", this.status)
-            return
-        }
         // parse all layers
         var rgpDataPackets = Protocol.ProtocolSerializer.UnpackAllAsMap(data)
-        // process data on conditions
-        var callbackRet = callbackMap[this.status](rgpDataPackets)
-        console.log("handled with ret:", callbackRet)
+        // process data as a flow
+        var flowPackets = {}
+        var flowCallback = {}
+        flowPackets[Enums.Proto.BASE_LAYER] = rgpDataPackets[Enums.ProtoName.BASE_LAYER]
+        flowPackets[Enums.Proto.VIRTUAL_CHANNEL_LAYER] = rgpDataPackets[Enums.ProtoName.VIRTUAL_CHANNEL_LAYER]
+        flowPackets[Enums.Proto.BUSINESS_LOGIC_LAYER] = rgpDataPackets[Enums.ProtoName.BUSINESS_LOGIC_LAYER]
+        flowCallback[Enums.Proto.BASE_LAYER] = this._processBaseLayer.bind(this)
+        flowCallback[Enums.Proto.VIRTUAL_CHANNEL_LAYER] = this._processVirtualChannelLayer.bind(this)
+        flowCallback[Enums.Proto.BUSINESS_LOGIC_LAYER] = null
+        var nextLayer = Enums.Proto.BASE_LAYER
+        do {
+            nextLayer = flowCallback[nextLayer](flowPackets[nextLayer])
+        }
+        while (nextLayer != Enums.Proto.NONE_LAYER && flowCallback[nextLayer] && flowPackets[nextLayer])
     }
 }
 

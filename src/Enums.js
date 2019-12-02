@@ -22,8 +22,7 @@ const Consts = {
         VIRTUAL_CHANNEL_LAYER:  "virtual_channel_layer",
         ENCRYPT_LAYER:          "encrypt_layer",
         BUSINESS_LOGIC_LAYER:   "business_logic_layer",
-    }
-    ,
+    },
     BaseLayerCommand: {
         CLIENT_ACQUIRE:     0xaa,
         SERVER_CONFIRM:     0xbb,
@@ -32,6 +31,13 @@ const Consts = {
         OTHER_SIDE_CONFIRM: 0xdd,
         DATA_TRANSMISSION:  0xee,
         HEART_BEAT:         0xff,
+    },
+    VirtualChannelLayerCommand: {
+        CHANNEL_ACQUIRE:            0xb1,
+        CHANNEL_CONFIRM_ACQUIRE:    0xb2,
+        CHANNEL_RELEASE:            0xb3,
+        CHANNEL_CONFIRM_RELEASE:    0xb4,
+        CHANNEL_DATA_TRANSMISSION:  0xb5,
     },
     FixedLength: {
         BASE_LAYER:             8,
@@ -57,6 +63,9 @@ const Consts = {
         SUCCEEDED:                  0,
         UNSUPPORTED_COMMAND:        1,
         SERVER_REJECTED:            2,
+        PARAM_INVALID:              3,
+        UNSUPPORTED_STATUS:         4,
+        UNKNOWN_ROLE:               5,
     }
 }
 
