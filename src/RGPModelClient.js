@@ -47,11 +47,30 @@ class RGPModelClient {
                 this.onerror(onErrorEvent)
             }
         }
+        // 5. 虚拟通道回调
+        this.onvchann = null
+        this._onvchann = (onVChannEvent) => {
+            if (!(onVChannEvent instanceof EventArgs.OnVChannelAcquireEvent)) {
+                console.error("event arg not instance of OnVChannelAcquireEvent")
+                return
+            }
+            if (this.onvchann) {
+                this.onvchann(onVChannEvent)
+            }
+        }
     }
 
     connect(url) {
         this._regcallback(this.conn)
         this.conn.connect(url)
+    }
+
+    createVirtualChannel(vchannCallback, vchannID, remark = "") {
+        this.conn.createVirtualChannel(vchannCallback, vchannID, remark)
+    }
+
+    sendViaVirtualChannel(bizPacket, vchannID) {
+        this.conn.sendViaVirtualChannel(bizPacket, vchannID)
     }
 
     _regcallback(baseconn) {
@@ -64,7 +83,7 @@ class RGPModelClient {
         baseconn.ondata = this._ondata
         baseconn.onclose = this._onclose
         baseconn.onerror = this._onerror
-        baseconn.onvchannel = null
+        baseconn.onvchannel = this._onvchann
     }
 }
 

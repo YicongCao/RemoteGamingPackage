@@ -2,6 +2,8 @@ const Enums = require('./Enums')
 const WebSocket = require('ws')
 const Protocol = require('./Protocol')
 const EventArgs = require('./EventArgs')
+const VirtualChannel = require('./VirtualChannel')
+const Utils = require('./Utils')
 const invalidConnID = 0xffffffff
 const roleClient = "client"
 const roleServer = "server"
@@ -13,6 +15,7 @@ class BaseConnection {
         this.connid = invalidConnID
         this.status = Enums.Status.INVALID
         this._role = ""
+        this._vchannMap = new Map()
         // callbacks
         this.onconnectreq = null    // server
         this.onconnected = null     // client
@@ -102,8 +105,15 @@ class BaseConnection {
         }.bind(this))
     }
 
-    createVirtualChannel(virtualChannelCallback, remark = "") {
+    createVirtualChannel(vchannCallback, vchannID, remark = "") {
+        var acquirePacket = new Protocol.VirtualChannelLayerPacket(Enums.Proto.NONE_LAYER,
+            Enums.VirtualChannelLayerCommand.CHANNEL_ACQUIRE, vchannID, remark)
+        this._vchannMap[vchannID] = new VirtualChannel(this, vchannID, remark, vchannCallback)
+        this._sendPacket(acquirePacket)
+    }
 
+    sendViaVirtualChannel(bizPacket, vchannID) {
+        this._vchannMap[vchannID].send(bizPacket)
     }
 
     _processBaseLayer(basePacket) {
@@ -146,10 +156,11 @@ class BaseConnection {
                 break
             }
             nextLayer = vchanPacket.proto
-            var onVChannAcquireEvent = new EventArgs.OnVChannelAcquireEvent()
+            var onVChannAcquireEvent = new EventArgs.OnVChannelAcquireEvent(this)
             if (vchanPacket.command == Enums.VirtualChannelLayerCommand.CHANNEL_ACQUIRE) {
                 onVChannAcquireEvent.action = "acquire"
                 onVChannAcquireEvent.remark = vchanPacket.remark
+                onVChannAcquireEvent.channid = vchanPacket.virtualChannelID
                 if (this.onvchannel) {
                     this.onvchannel(onVChannAcquireEvent)
                 }
@@ -161,9 +172,11 @@ class BaseConnection {
                     var confirmPacket = new Protocol.VirtualChannelLayerPacket(Enums.Proto.NONE_LAYER,
                         Enums.VirtualChannelLayerCommand.CHANNEL_CONFIRM_ACQUIRE, onVChannAcquireEvent.channid,
                         onVChannAcquireEvent.remark)
-                    // todo: encapsule pack higher level method
-                    // this._sendRaw(Protocol.ProtocolSerializer.Pack)
+                    this._vchannMap[onVChannAcquireEvent.channid] = new VirtualChannel(this,
+                        onVChannAcquireEvent.channid, onVChannAcquireEvent.remark, onVChannAcquireEvent.callback)
+                    this._sendPacket(confirmPacket)
                     // todo: notify invoker vchannel create complete
+                    break
                 }
             }
             if (vchanPacket.command == Enums.VirtualChannelLayerCommand.CHANNEL_CONFIRM_ACQUIRE) {
@@ -178,6 +191,33 @@ class BaseConnection {
         return nextLayer
     }
 
+    _processBusinessLayer(bizPacket, vchannID) {
+        var nextLayer = Enums.Proto.NONE_LAYER
+        var result = Enums.ErrorCodes.SUCCEEDED
+        do {
+            if (!(bizPacket instanceof Protocol.BusinessLayerPacketTemplate)) {
+                result = Enums.ErrorCodes.PARAM_INVALID
+                break
+            }
+            if (!this._vchannMap[vchannID]) {
+                result = Enums.ErrorCodes.ILLEGAL_VCHANN_ID
+                break
+            }
+            var onVChannDataEvent = new EventArgs.OnVChannelDataEvent(this)
+            onVChannDataEvent.channid = vchannID
+            onVChannDataEvent.remark = this._vchannMap[vchannID].remark
+            onVChannDataEvent.data = bizPacket
+            if (this._vchannMap[vchannID].callback) {
+                this._vchannMap[vchannID].callback(onVChannDataEvent)
+            } else {
+                result = Enums.ErrorCodes.EMPTY_VCHANN_CALLBACK
+            }
+            break
+        } while (false)
+        console.log("business layer proc ret:", result, "next layer:", nextLayer)
+        return nextLayer
+    }
+
     _onBaseconnRequiring(basePacket) {
         // var basePacket = rgpPacketMap[Enums.ProtoName.BASE_LAYER]
         switch (basePacket.command) {
@@ -189,27 +229,22 @@ class BaseConnection {
                     this.connid = onConfirmEvent.connid
                     accept = onConfirmEvent.allow
                 }
-                var resp = null
                 if (accept) {
                     this.status = Enums.Status.CONNECTED
                     var rgpBaseLayerPacket = new Protocol.BaseLayerPacket(Enums.Proto.NONE_LAYER,
                         Enums.BaseLayerCommand.SERVER_CONFIRM, this.connid)
-                    var resp = Protocol.ProtocolSerializer.PackBaseLayer(rgpBaseLayerPacket)
+                    this._sendPacket(rgpBaseLayerPacket)
                     console.log("rgp conn confirmed, connid:", this.connid)
-                } else {
-                    this.status = Enums.Status.REJECTED
-                    var rgpBaseLayerPacket = new Protocol.BaseLayerPacket(Enums.Proto.NONE_LAYER,
-                        Enums.BaseLayerCommand.SERVER_REJECT, this.connid)
-                    var resp = Protocol.ProtocolSerializer.PackBaseLayer(rgpBaseLayerPacket)
-                    console.error("rgp conn denied by server")
-                }
-                this._sendRaw(resp)
-                if (accept) {
                     if (this.onconnected) {
                         var onConnectedEvent = new EventArgs.OnConnectedEvent(this)
                         this.onconnected(onConnectedEvent)
                     }
                 } else {
+                    this.status = Enums.Status.REJECTED
+                    var rgpBaseLayerPacket = new Protocol.BaseLayerPacket(Enums.Proto.NONE_LAYER,
+                        Enums.BaseLayerCommand.SERVER_REJECT, this.connid)
+                    this._sendPacket(rgpBaseLayerPacket)
+                    console.error("rgp conn denied by server")
                     this.conn.close()
                 }
                 return Enums.ErrorCodes.SUCCEEDED
@@ -254,6 +289,9 @@ class BaseConnection {
     }
 
     _sendRaw(arrayBuffer) {
+        if (arrayBuffer instanceof Uint8Array) {
+            arrayBuffer = arrayBuffer.buffer
+        }
         if (!(arrayBuffer instanceof ArrayBuffer)) {
             console.error("data to send not arraybuffer")
             return
@@ -263,12 +301,43 @@ class BaseConnection {
         this.conn.send(arrayBuffer)
     }
 
+    _sendPacket(rgpPacket, vchannid = 0xffffffff) {
+        var bufferToSend = null
+        if (rgpPacket instanceof Protocol.BaseLayerPacket) {
+            bufferToSend = Protocol.ProtocolSerializer.PackBaseLayer(rgpPacket)
+            this._sendRaw(bufferToSend)
+        } else if (rgpPacket instanceof Protocol.VirtualChannelLayerPacket) {
+            var vchannLayerBuffer = Protocol.ProtocolSerializer.PackVirtualChannelLayer(rgpPacket)
+            var baseLayerPacket = new Protocol.BaseLayerPacket(Enums.Proto.VIRTUAL_CHANNEL_LAYER,
+                Enums.BaseLayerCommand.DATA_TRANSMISSION, this.connid)
+            bufferToSend = Protocol.ProtocolSerializer.PackBaseLayer(baseLayerPacket, vchannLayerBuffer)
+            this._sendRaw(bufferToSend)
+        } else if (rgpPacket instanceof Protocol.BusinessLayerPacketTemplate) {
+            if (!vchannid || vchannid == invalidConnID) {
+                console.error("sending illegal biz packet with vchannid:", vchannid)
+                return
+            }
+            var bizLayerBuffer = Protocol.ProtocolSerializer.PackBusinessLogicLayer(rgpPacket)
+            var vchannLayerPacket = new Protocol.VirtualChannelLayerPacket(Enums.Proto.BUSINESS_LOGIC_LAYER,
+                Enums.VirtualChannelLayerCommand.CHANNEL_DATA_TRANSMISSION, vchannid, "none")
+            var vchannLayerBuffer = Protocol.ProtocolSerializer.PackVirtualChannelLayer(vchannLayerPacket, bizLayerBuffer)
+            var baseLayerPacket = new Protocol.BaseLayerPacket(Enums.Proto.VIRTUAL_CHANNEL_LAYER,
+                Enums.BaseLayerCommand.DATA_TRANSMISSION, this.connid)
+            bufferToSend = Protocol.ProtocolSerializer.PackBaseLayer(baseLayerPacket, vchannLayerBuffer)
+            this._sendRaw(bufferToSend)
+        } else {
+            console.error("sending illegal packet")
+            return
+        }
+    }
+
     _process(data) {
         if (!(data instanceof ArrayBuffer)) {
             console.error("data received not arraybuffer")
             return
         }
         console.log("received", data.byteLength, "byte long data")
+        console.log("[packet]", Utils.FormatArrayBuffer(data))
         // parse all layers
         var rgpDataPackets = Protocol.ProtocolSerializer.UnpackAllAsMap(data)
         // process data as a flow
@@ -279,10 +348,15 @@ class BaseConnection {
         flowPackets[Enums.Proto.BUSINESS_LOGIC_LAYER] = rgpDataPackets[Enums.ProtoName.BUSINESS_LOGIC_LAYER]
         flowCallback[Enums.Proto.BASE_LAYER] = this._processBaseLayer.bind(this)
         flowCallback[Enums.Proto.VIRTUAL_CHANNEL_LAYER] = this._processVirtualChannelLayer.bind(this)
-        flowCallback[Enums.Proto.BUSINESS_LOGIC_LAYER] = null
+        flowCallback[Enums.Proto.BUSINESS_LOGIC_LAYER] = this._processBusinessLayer.bind(this)
         var nextLayer = Enums.Proto.BASE_LAYER
         do {
-            nextLayer = flowCallback[nextLayer](flowPackets[nextLayer])
+            if (nextLayer == Enums.Proto.BUSINESS_LOGIC_LAYER) {
+                nextLayer = flowCallback[nextLayer](flowPackets[nextLayer],
+                    flowPackets[Enums.Proto.VIRTUAL_CHANNEL_LAYER].virtualChannelID)
+            } else {
+                nextLayer = flowCallback[nextLayer](flowPackets[nextLayer])
+            }
         }
         while (nextLayer != Enums.Proto.NONE_LAYER && flowCallback[nextLayer] && flowPackets[nextLayer])
     }

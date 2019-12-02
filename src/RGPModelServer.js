@@ -5,8 +5,7 @@ const WebSocket = require('ws')
 class RGPModelServer {
     constructor() {
         // 连接池
-        this.connpool = []
-        this.poolsize = 0
+        this.connmap = new Map()
         // 回调函数
         // 游戏实例应当覆写以下回调函数，以实现按需连接等逻辑
         // 1. 收到连接回调
@@ -19,6 +18,7 @@ class RGPModelServer {
             if (this.onconfirm) {
                 this.onconfirm(onConfirmEvent)
             }
+            this.connmap[onConfirmEvent.connid] = onConfirmEvent.conn
         }
         // 2. 连接成功回调
         this.onconnected = null
@@ -60,6 +60,17 @@ class RGPModelServer {
                 this.onerror(onErrorEvent)
             }
         }
+        // 6. 虚拟通道回调
+        this.onvchann = null
+        this._onvchann = (onVChannEvent) => {
+            if (!(onVChannEvent instanceof EventArgs.OnVChannelAcquireEvent)) {
+                console.error("event arg not instance of OnVChannelAcquireEvent")
+                return
+            }
+            if (this.onvchann) {
+                this.onvchann(onVChannEvent)
+            }
+        }
     }
 
     serve(port) {
@@ -71,8 +82,15 @@ class RGPModelServer {
             var client = new BaseConnection()
             this._regcallback(client)
             client.wait(ws)
-            this.connpool.push(client)
         }.bind(this))
+    }
+
+    createVirtualChannel(clientConnID, vchannCallback, vchannID, remark = "") {
+        this.connmap[clientConnID].createVirtualChannel(vchannCallback, vchannID, remark)
+    }
+
+    sendViaVirtualChannel(clientConnID, bizPacket, vchannID) {
+        this.connmap[clientConnID].sendViaVirtualChannel(bizPacket, vchannID)
     }
 
     _regcallback(baseconn) {
@@ -85,7 +103,7 @@ class RGPModelServer {
         baseconn.ondata = this._ondata
         baseconn.onclose = this._onclose
         baseconn.onerror = this._onerror
-        baseconn.onvchannel = null
+        baseconn.onvchannel = this._onvchann
     }
 }
 

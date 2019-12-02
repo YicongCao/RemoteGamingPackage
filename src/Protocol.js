@@ -411,5 +411,6 @@ module.exports = {
     ProtocolSerializer: ProtocolSerializer,
     BaseLayerPacket: BaseLayerPacket,
     VirtualChannelLayerPacket: VirtualChannelLayerPacket,
+    BusinessLayerPacketTemplate: BusinessLayerPacketTemplate,
     BizOneBytePacket: BizOneBytePacket,
 }

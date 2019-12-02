@@ -67,6 +67,8 @@ const Consts = {
         UNSUPPORTED_STATUS:         4,
         UNKNOWN_ROLE:               5,
         FIELD_MISSING:              6,
+        EMPTY_VCHANN_CALLBACK:      7,
+        ILLEGAL_VCHANN_ID:          8,
     }
 }
 

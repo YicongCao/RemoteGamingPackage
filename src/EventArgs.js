@@ -12,7 +12,6 @@ class OnConfirmEvent extends GeneralEvent {
     constructor(baseconn) {
         super(baseconn)
         this.allow = false
-        this.connid = 0xffffffff
     }
 }
 
@@ -47,10 +46,20 @@ class OnVChannelAcquireEvent extends GeneralEvent {
     }
 }
 
+class OnVChannelDataEvent extends GeneralEvent {
+    constructor(baseconn) {
+        super(baseconn)
+        this.channid = 0xffffffff
+        this.remark = ""
+        this.data = null
+    }
+}
+
 module.exports = {
     OnConfirmEvent: OnConfirmEvent,
     OnConnectedEvent: OnConnectedEvent,
     OnErrorEvent: OnErrorEvent,
     OnCloseEvent: OnCloseEvent,
     OnVChannelAcquireEvent: OnVChannelAcquireEvent,
+    OnVChannelDataEvent: OnVChannelDataEvent,
 }
