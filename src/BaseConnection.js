@@ -1,6 +1,7 @@
 const Enums = require('./Enums')
 const WebSocket = require('ws')
 const Protocol = require('./Protocol')
+const EventArgs = require('./EventArgs')
 const invalidConnID = 0xffffffff
 
 class BaseConnection {
@@ -10,11 +11,12 @@ class BaseConnection {
         this.connid = invalidConnID
         this.status = Enums.Status.INVALID
         // callbacks
-        // this.onconnectreq = null    // server
-        // this.onconnected = null     // client
-        // this.onerror = null
-        // this.onhung = null
-        // this.ondata = null
+        this.onconnectreq = null    // server
+        this.onconnected = null     // client
+        this.onerror = null
+        this.onclose = null
+        this.ondata = null
+        this.onvchannel = null
     }
 
     /**
@@ -44,6 +46,10 @@ class BaseConnection {
                         this.status = Enums.Status.CONNECTED
                         this.connid = basePacket.connectionID
                         console.log("rgp conn confirmed, connid:", this.connid)
+                        if (this.onconnected) {
+                            var onConnectedEvent = new EventArgs.OnConnectedEvent(this)
+                            this.onconnected(onConnectedEvent)
+                        }
                         return Enums.ErrorCodes.SUCCEEDED
                     case Enums.BaseLayerCommand.SERVER_REJECT:
                         this.status = Enums.Status.REJECTED
@@ -61,11 +67,21 @@ class BaseConnection {
         this.conn.on('error', function _onclienterr(e) {
             this.status = Enums.Status.HUNG
             console.error("rgp conn error:", e)
+            if (this.onerror) {
+                var onErrorEvent = new EventArgs.OnErrorEvent(this)
+                onErrorEvent.errorcode = e
+                this.onerror(onErrorEvent)
+            }
         }.bind(this))
 
         this.conn.on('close', function _onclienterr(e) {
             this.status = Enums.Status.CLOSED
             console.error("rgp conn closed:", e)
+            if (this.onclose) {
+                var onCloseEvent = new EventArgs.OnCloseEvent(this)
+                onCloseEvent.errorcode = e
+                this.onclose(onCloseEvent)
+            }
         }.bind(this))
     }
 
@@ -74,7 +90,7 @@ class BaseConnection {
      * @param {WebSocket} ws websocket instance created by server
      * @param {int} clientID conn id that identifies different clients
      */
-    confirm(ws, clientID) {
+    wait(ws, clientID = invalidConnID) {
         if (!this._setconn(ws, clientID)) {
             return
         }
@@ -86,21 +102,35 @@ class BaseConnection {
                 switch (basePacket.command) {
                     case Enums.BaseLayerCommand.CLIENT_ACQUIRE:
                         var accept = this.connid && this.connid != invalidConnID
+                        if (this.onconnectreq) {
+                            var onConfirmEvent = new EventArgs.OnConfirmEvent(this)
+                            this.onconnectreq(onConfirmEvent)
+                            this.connid = onConfirmEvent.connid
+                            accept = onConfirmEvent.allow
+                        }
                         var resp = null
                         if (accept) {
                             this.status = Enums.Status.CONNECTED
                             var rgpBaseLayerPacket = new Protocol.BaseLayerPacket(Enums.Proto.NONE_LAYER, 
-                                Enums.BaseLayerCommand.SERVER_CONFIRM, clientID)
+                                Enums.BaseLayerCommand.SERVER_CONFIRM, this.connid)
                             var resp = Protocol.ProtocolSerializer.PackBaseLayer(rgpBaseLayerPacket)
                             console.log("rgp conn confirmed, connid:", this.connid)
                         } else {
                             this.status = Enums.Status.REJECTED
                             var rgpBaseLayerPacket = new Protocol.BaseLayerPacket(Enums.Proto.NONE_LAYER, 
-                                Enums.BaseLayerCommand.SERVER_REJECT, clientID)
+                                Enums.BaseLayerCommand.SERVER_REJECT, this.connid)
                             var resp = Protocol.ProtocolSerializer.PackBaseLayer(rgpBaseLayerPacket)
                             console.error("rgp conn denied by server")
                         }
                         this._sendraw(resp)
+                        if (accept) {
+                            if (this.onconnected) {
+                                var onConnectedEvent = new EventArgs.OnConnectedEvent(this)
+                                this.onconnected(onConnectedEvent)
+                            }
+                        } else {
+                            this.conn.close()
+                        }
                         return Enums.ErrorCodes.SUCCEEDED
                     default:
                         return Enums.ErrorCodes.UNSUPPORTED_COMMAND
@@ -112,11 +142,21 @@ class BaseConnection {
         this.conn.on('error', function _onclienterr(e) {
             this.status = Enums.Status.HUNG
             console.error("rgp conn error:", e)
+            if (this.onerror) {
+                var onErrorEvent = new EventArgs.OnErrorEvent(this)
+                onErrorEvent.errorcode = e
+                this.onerror(onErrorEvent)
+            }
         }.bind(this))
 
         this.conn.on('close', function _onclienterr(e) {
             this.status = Enums.Status.CLOSED
             console.error("rgp conn closed:", e)
+            if (this.onclose) {
+                var onCloseEvent = new EventArgs.OnCloseEvent(this)
+                onCloseEvent.errorcode = e
+                this.onclose(onCloseEvent)
+            }
         }.bind(this))
     }
 

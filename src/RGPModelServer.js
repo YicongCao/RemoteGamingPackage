@@ -1,13 +1,65 @@
 const BaseConnection = require('./BaseConnection')
+const EventArgs = require('./EventArgs')
 const WebSocket = require('ws')
 
 class RGPModelServer {
     constructor() {
-        this.connindex = 0
+        // 连接池
         this.connpool = []
+        this.poolsize = 0
         // 回调函数
-        // 1. 收到连接请求
-        this.onConnectRequest = () => {}
+        // 游戏实例应当覆写以下回调函数，以实现按需连接等逻辑
+        // 1. 收到连接回调
+        this.onconfirm = null
+        this._onconfirm = (onConfirmEvent) => {
+            if (!(onConfirmEvent instanceof EventArgs.OnConfirmEvent)) {
+                console.error("event arg not instance of OnConfirmEvent")
+                return
+            }
+            if (this.onconfirm) {
+                this.onconfirm(onConfirmEvent)
+            }
+        }
+        // 2. 连接成功回调
+        this.onconnected = null
+        this._onconnected = (onConnectedEvent) => {
+            if (!(onConnectedEvent instanceof EventArgs.OnConnectedEvent)) {
+                console.error("event arg not instance of OnConnectedEvent")
+                return
+            }
+            if (this.onconnected) {
+                this.onconnected(onConnectedEvent)
+            }
+        }
+        // 3. 业务包通信回调
+        this.ondata = null
+        this._ondata = (onDataEvent) => {
+            if (this.ondata) {
+                this.ondata(onDataEvent)
+            }
+        }
+        // 4. 连接关闭回调
+        this.onclose = null
+        this._onclose = (onCloseEvent) => {
+            if (!(onCloseEvent instanceof EventArgs.OnCloseEvent)) {
+                console.error("event arg not instance of OnCloseEvent")
+                return
+            }
+            if (this.onclose) {
+                this.onclose(onCloseEvent)
+            }
+        }
+        // 5. 连接出错回调
+        this.onerror = null
+        this._onerror = (onErrorEvent) => {
+            if (!(onErrorEvent instanceof EventArgs.OnErrorEvent)) {
+                console.error("event arg not instance of OnErrorEvent")
+                return
+            }
+            if (this.onerror) {
+                this.onerror(onErrorEvent)
+            }
+        }
     }
 
     serve(port) {
@@ -17,8 +69,23 @@ class RGPModelServer {
 
         this.wss.on('connection', function connection(ws) {
             var client = new BaseConnection()
-            client.confirm(ws, ++this.connindex)
+            this._regcallback(client)
+            client.wait(ws)
+            this.connpool.push(client)
         }.bind(this))
+    }
+
+    _regcallback(baseconn) {
+        if (!(baseconn instanceof BaseConnection)) {
+            console.error("baseconn not instance of BaseConnection")
+            return
+        }
+        baseconn.onconnectreq = this._onconfirm
+        baseconn.onconnected = this._onconnected
+        baseconn.ondata = this._ondata
+        baseconn.onclose = this._onclose
+        baseconn.onerror = this._onerror
+        baseconn.onvchannel = null
     }
 }
 
