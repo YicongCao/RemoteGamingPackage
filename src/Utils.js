@@ -39,7 +39,7 @@ class Utils {
         if (offset < 0 || offset > arrayBuffer.byteLength) {
             return null
         }
-        length = length == 0 ? arrayBuffer.length - offset : length
+        length = length == 0 ? arrayBuffer.byteLength - offset : length
         var targetBuffer = new Uint8Array(length)
         var originBuffer = new Uint8Array(arrayBuffer)
         for (var i = 0; i < length; i++) {
