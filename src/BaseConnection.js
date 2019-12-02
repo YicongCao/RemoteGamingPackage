@@ -28,7 +28,7 @@ class BaseConnection {
      */
     connect(url) {
         this._role = roleClient
-        if (!this._setconn(new WebSocket(url))) {
+        if (!this._setConn(new WebSocket(url))) {
             return
         }
 
@@ -38,7 +38,7 @@ class BaseConnection {
             var rgpBaseLayerPacket = new Protocol.BaseLayerPacket(Enums.Proto.NONE_LAYER, 
                 Enums.BaseLayerCommand.CLIENT_ACQUIRE, invalidConnID)
             var rgpBaseLayerBuffer = Protocol.ProtocolSerializer.PackBaseLayer(rgpBaseLayerPacket)
-            this._sendraw(rgpBaseLayerBuffer)
+            this._sendRaw(rgpBaseLayerBuffer)
         }.bind(this))
 
         this.conn.on('message', function _onclientmsg(e) {
@@ -73,7 +73,7 @@ class BaseConnection {
      */
     wait(ws, clientID = invalidConnID) {
         this._role = roleServer
-        if (!this._setconn(ws, clientID)) {
+        if (!this._setConn(ws, clientID)) {
             return
         }
 
@@ -138,17 +138,44 @@ class BaseConnection {
     }
 
     _processVirtualChannelLayer(vchanPacket) {
-        var vchanPacket = rgpPacketMap[Enums.ProtoName.VIRTUAL_CHANNEL_LAYER]
-        switch (vchanPacket.command) {
-            case Enums.VirtualChannelLayerCommand.CHANNEL_ACQUIRE:
+        var nextLayer = Enums.Proto.NONE_LAYER
+        var result = Enums.ErrorCodes.SUCCEEDED
+        do {
+            if (!(vchanPacket instanceof Protocol.VirtualChannelLayerPacket)) {
+                result = Enums.ErrorCodes.PARAM_INVALID
                 break
-            case Enums.VirtualChannelLayerCommand.CHANNEL_CONFIRM_ACQUIRE:
+            }
+            nextLayer = vchanPacket.proto
+            var onVChannAcquireEvent = new EventArgs.OnVChannelAcquireEvent()
+            if (vchanPacket.command == Enums.VirtualChannelLayerCommand.CHANNEL_ACQUIRE) {
+                onVChannAcquireEvent.action = "acquire"
+                onVChannAcquireEvent.remark = vchanPacket.remark
+                if (this.onvchannel) {
+                    this.onvchannel(onVChannAcquireEvent)
+                }
+                if (onVChannAcquireEvent.allow) {
+                    if (!onVChannAcquireEvent.callback || !onVChannAcquireEvent.channid) {
+                        result = Enums.ErrorCodes.FIELD_MISSING
+                        break
+                    }
+                    var confirmPacket = new Protocol.VirtualChannelLayerPacket(Enums.Proto.NONE_LAYER,
+                        Enums.VirtualChannelLayerCommand.CHANNEL_CONFIRM_ACQUIRE, onVChannAcquireEvent.channid,
+                        onVChannAcquireEvent.remark)
+                    // todo: encapsule pack higher level method
+                    // this._sendRaw(Protocol.ProtocolSerializer.Pack)
+                    // todo: notify invoker vchannel create complete
+                }
+            }
+            if (vchanPacket.command == Enums.VirtualChannelLayerCommand.CHANNEL_CONFIRM_ACQUIRE) {
+                // todo: notify invoker vchannel create complete
                 break
-            case Enums.VirtualChannelLayerCommand.CHANNEL_DATA_TRANSMISSION:
+            }
+            if (vchanPacket.command == Enums.VirtualChannelLayerCommand.CHANNEL_DATA_TRANSMISSION) {
                 break
-            default:
-                break
-        }
+            }
+        } while (false)
+        console.log("vchann layer proc ret:", result, "next layer:", nextLayer)
+        return nextLayer
     }
 
     _onBaseconnRequiring(basePacket) {
@@ -176,7 +203,7 @@ class BaseConnection {
                     var resp = Protocol.ProtocolSerializer.PackBaseLayer(rgpBaseLayerPacket)
                     console.error("rgp conn denied by server")
                 }
-                this._sendraw(resp)
+                this._sendRaw(resp)
                 if (accept) {
                     if (this.onconnected) {
                         var onConnectedEvent = new EventArgs.OnConnectedEvent(this)
@@ -214,7 +241,7 @@ class BaseConnection {
         }
     }
 
-    _setconn(ws, connidPara = invalidConnID) {
+    _setConn(ws, connidPara = invalidConnID) {
         if (ws.__proto__ != WebSocket.prototype) {
             console.error("conn para not instance of ws:", ws)
             return false
@@ -226,7 +253,7 @@ class BaseConnection {
         return true
     }
 
-    _sendraw(arrayBuffer) {
+    _sendRaw(arrayBuffer) {
         if (!(arrayBuffer instanceof ArrayBuffer)) {
             console.error("data to send not arraybuffer")
             return

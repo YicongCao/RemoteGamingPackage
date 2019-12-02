@@ -66,6 +66,7 @@ const Consts = {
         PARAM_INVALID:              3,
         UNSUPPORTED_STATUS:         4,
         UNKNOWN_ROLE:               5,
+        FIELD_MISSING:              6,
     }
 }
 
