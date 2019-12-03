@@ -50,10 +50,10 @@ class BaseConnection {
 
         this.conn.on('error', function _onclienterr(e) {
             this.status = Enums.Status.HUNG
-            console.error("rgp conn error:", e)
+            console.error("rgp conn error:", e.code)
             if (this.onerror) {
                 var onErrorEvent = new EventArgs.OnErrorEvent(this)
-                onErrorEvent.errorcode = e
+                onErrorEvent.errorcode = e.code
                 this.onerror(onErrorEvent)
             }
         }.bind(this))
@@ -86,10 +86,10 @@ class BaseConnection {
 
         this.conn.on('error', function _onclienterr(e) {
             this.status = Enums.Status.HUNG
-            console.error("rgp conn error:", e)
+            console.error("rgp conn error:", e.code)
             if (this.onerror) {
                 var onErrorEvent = new EventArgs.OnErrorEvent(this)
-                onErrorEvent.errorcode = e
+                onErrorEvent.errorcode = e.code
                 this.onerror(onErrorEvent)
             }
         }.bind(this))
