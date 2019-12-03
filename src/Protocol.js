@@ -76,6 +76,25 @@ class BizOneBytePacket extends BusinessLayerPacketTemplate{
     unserialize(arrayBuffer) {
         var baseBuffer = new Uint8Array(arrayBuffer)
         this.data = baseBuffer[0]
+        this.payloadLength = baseBuffer.byteLength
+    }
+}
+
+class BizImageDataPacket extends BusinessLayerPacketTemplate {
+    constructor(bytearray = []) {
+        var uint8array = new Uint8Array(bytearray)
+        super(Enums.BusinessLogicType.IMAGE_DATA, uint8array.byteLength)
+        this.data = new Uint8ClampedArray(bytearray)
+    }
+
+    serialize() {
+        var baseBuffer = new Uint8Array(this.data)
+        return baseBuffer.buffer
+    }
+
+    unserialize(arrayBuffer) {
+        this.data = new Uint8ClampedArray(arrayBuffer)
+        this.payloadLength = this.data.length
     }
 }
 
@@ -250,6 +269,10 @@ class ProtocolSerializer {
                 var bizOneBytePacket = new BizOneBytePacket()
                 bizOneBytePacket.unserialize(payloadBuffer.buffer)
                 return bizOneBytePacket
+            case Enums.BusinessLogicType.IMAGE_DATA:
+                var bizImageDataPacket = new BizImageDataPacket()
+                bizImageDataPacket.unserialize(payloadBuffer.buffer)
+                return bizImageDataPacket
             default:
                 console.error("unknown biz logic type:", bizLogicType)
                 return null
@@ -413,4 +436,5 @@ module.exports = {
     VirtualChannelLayerPacket: VirtualChannelLayerPacket,
     BusinessLayerPacketTemplate: BusinessLayerPacketTemplate,
     BizOneBytePacket: BizOneBytePacket,
+    BizImageDataPacket: BizImageDataPacket,
 }
