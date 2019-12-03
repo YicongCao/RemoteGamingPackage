@@ -143,7 +143,7 @@ class BaseConnection {
                 break
             }
         } while (false)
-        console.log("base layer proc ret:", result, "next layer:", nextLayer)
+        // console.log("base layer proc ret:", result, "next layer:", nextLayer)
         return nextLayer
     }
 
@@ -187,7 +187,7 @@ class BaseConnection {
                 break
             }
         } while (false)
-        console.log("vchann layer proc ret:", result, "next layer:", nextLayer)
+        // console.log("vchann layer proc ret:", result, "next layer:", nextLayer)
         return nextLayer
     }
 
@@ -214,7 +214,7 @@ class BaseConnection {
             }
             break
         } while (false)
-        console.log("business layer proc ret:", result, "next layer:", nextLayer)
+        // console.log("business layer proc ret:", result, "next layer:", nextLayer)
         return nextLayer
     }
 
@@ -337,7 +337,7 @@ class BaseConnection {
             return
         }
         console.log("received", data.byteLength, "byte long data")
-        console.log("[packet]", Utils.FormatArrayBuffer(data))
+        // console.log("[packet]", Utils.FormatArrayBuffer(data))
         // parse all layers
         var rgpDataPackets = Protocol.ProtocolSerializer.UnpackAllAsMap(data)
         // process data as a flow
