@@ -58,6 +58,8 @@ const Consts = {
         RAW_BYTE_DATA:      2,
         IMAGE_DATA:         3,
         CONTROL_DATA:       4,
+        PONG_POS:           5,
+        PONG_DRAW:          6,
     },
     ErrorCodes: {
         SUCCEEDED:                  0,

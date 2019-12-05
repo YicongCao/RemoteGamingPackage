@@ -98,6 +98,62 @@ class BizImageDataPacket extends BusinessLayerPacketTemplate {
     }
 }
 
+class BizMousePosPacket extends BusinessLayerPacketTemplate {
+    constructor(x = 0, y = 0) {
+        super(Enums.BusinessLogicType.PONG_POS, 3)
+        this.x = x
+        this.y = y
+    }
+
+    serialize() {
+        var baseBuffer = new Uint8Array(3)
+        baseBuffer[0] = this.x & 0x00ff
+        baseBuffer[1] = ((this.x & 0x0f00) >> 4) + ((this.y & 0x0f00) >> 8)
+        baseBuffer[2] = this.y & 0x00ff
+        return baseBuffer
+    }
+
+    unserialize(arrayBuffer) {
+        var baseBuffer = new Uint8Array(arrayBuffer)
+        this.x = baseBuffer[0] + ((baseBuffer[1] & 0xf0) << 4)
+        this.y = baseBuffer[2] + ((baseBuffer[1] & 0x0f) << 8)
+    }
+}
+
+class BizDrawRectPacket extends BusinessLayerPacketTemplate {
+    constructor() {
+        super(Enums.BusinessLogicType.PONG_DRAW, 6)
+        this.x = 0
+        this.y = 0
+        this.width = 0
+        this.height = 0
+        this.score = 127
+        this.buffer = 0
+    }
+
+    serialize() {
+        var baseBuffer = new Uint8Array(6)
+        baseBuffer[0] = this.x & 0x00ff
+        baseBuffer[1] = ((this.x & 0x0f00) >> 4) + ((this.y & 0x0f00) >> 8)
+        baseBuffer[2] = this.y & 0x00ff
+        baseBuffer[3] = this.width & 0xff
+        baseBuffer[4] = this.height & 0xff
+        this.buffer = this.buffer ? 1 : 0
+        baseBuffer[5] = (this.buffer << 7) + (this.score & 0x7f)
+        return baseBuffer
+    }
+
+    unserialize(arrayBuffer) {
+        var baseBuffer = new Uint8Array(arrayBuffer)
+        this.x = baseBuffer[0] + ((baseBuffer[1] & 0xf0) << 4)
+        this.y = baseBuffer[2] + ((baseBuffer[1] & 0x0f) << 8)
+        this.width = baseBuffer[3]
+        this.height = baseBuffer[4]
+        this.score = baseBuffer[5] & 0x7f
+        this.buffer = (baseBuffer[5] & 0x80) >> 7
+    }
+}
+
 /**
  * Pack & Unpack RGP Protocol Bytes, using network order
  */
@@ -273,6 +329,14 @@ class ProtocolSerializer {
                 var bizImageDataPacket = new BizImageDataPacket()
                 bizImageDataPacket.unserialize(payloadBuffer.buffer)
                 return bizImageDataPacket
+            case Enums.BusinessLogicType.PONG_POS: 
+                var bizPongPosPacket = new BizMousePosPacket()
+                bizPongPosPacket.unserialize(payloadBuffer.buffer)
+                return bizPongPosPacket
+            case Enums.BusinessLogicType.PONG_DRAW:
+                var bizDrawRectPacket = new BizDrawRectPacket()
+                bizDrawRectPacket.unserialize(payloadBuffer.buffer)
+                return bizDrawRectPacket
             default:
                 console.error("unknown biz logic type:", bizLogicType)
                 return null
@@ -437,4 +501,6 @@ module.exports = {
     BusinessLayerPacketTemplate: BusinessLayerPacketTemplate,
     BizOneBytePacket: BizOneBytePacket,
     BizImageDataPacket: BizImageDataPacket,
+    BizMousePosPacket: BizMousePosPacket,
+    BizDrawRectPacket: BizDrawRectPacket,
 }
