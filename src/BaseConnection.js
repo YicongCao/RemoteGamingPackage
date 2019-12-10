@@ -1,5 +1,8 @@
 const Enums = require('./Enums')
-const WebSocket = require('ws')
+if (typeof (WebSocket) == 'undefined') {
+    var WebSocket = require('ws')
+    isBrowser = false
+}
 const Protocol = require('./Protocol')
 const EventArgs = require('./EventArgs')
 const VirtualChannel = require('./VirtualChannel')
@@ -7,6 +10,7 @@ const Utils = require('./Utils')
 const invalidConnID = 0xffffffff
 const roleClient = "client"
 const roleServer = "server"
+var isBrowser = true
 
 class BaseConnection {
     constructor() {
@@ -35,20 +39,22 @@ class BaseConnection {
             return
         }
 
-        this.conn.on('open', function _onopen() {
+        var _onopen = (() => {
             this.status = Enums.Status.UNCONFIRMED
             // make base RGP connection
-            var rgpBaseLayerPacket = new Protocol.BaseLayerPacket(Enums.Proto.NONE_LAYER, 
+            var rgpBaseLayerPacket = new Protocol.BaseLayerPacket(Enums.Proto.NONE_LAYER,
                 Enums.BaseLayerCommand.CLIENT_ACQUIRE, invalidConnID)
             var rgpBaseLayerBuffer = Protocol.ProtocolSerializer.PackBaseLayer(rgpBaseLayerPacket)
             this._sendRaw(rgpBaseLayerBuffer)
-        }.bind(this))
-
-        this.conn.on('message', function _onclientmsg(e) {
-            this._process(e)
-        }.bind(this))
-
-        this.conn.on('error', function _onclienterr(e) {
+        }).bind(this)
+        var _onmsg = ((e) => {
+            if (isBrowser) {
+                this._process(e.data)
+            } else {
+                this._process(e)
+            }
+        }).bind(this)
+        var _onerr = ((e) => {
             this.status = Enums.Status.HUNG
             console.error("rgp conn error:", e.code)
             if (this.onerror) {
@@ -56,17 +62,32 @@ class BaseConnection {
                 onErrorEvent.errorcode = e.code
                 this.onerror(onErrorEvent)
             }
-        }.bind(this))
-
-        this.conn.on('close', function _onclienterr(e) {
+        }).bind(this)
+        var _onclose = ((e) => {
             this.status = Enums.Status.CLOSED
-            console.error("rgp conn closed:", e)
+            if (isBrowser) {
+                console.error("rgp conn closed:", e.code)
+            } else {
+                console.error("rgp conn closed:", e)
+            }
             if (this.onclose) {
                 var onCloseEvent = new EventArgs.OnCloseEvent(this)
-                onCloseEvent.errorcode = e
+                onCloseEvent.errorcode = isBrowser ? e.code : e
                 this.onclose(onCloseEvent)
             }
-        }.bind(this))
+        })
+
+        if (isBrowser) {
+            this.conn.onopen = _onopen
+            this.conn.onmessage = _onmsg
+            this.conn.onerror = _onerr
+            this.conn.onclose = _onclose
+        } else {
+            this.conn.on('open', _onopen)
+            this.conn.on('message', _onmsg)
+            this.conn.on('error', _onerr)
+            this.conn.on('close', _onclose)
+        }
     }
 
     /**

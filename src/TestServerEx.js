@@ -17,23 +17,22 @@ server.onconnected = (onConnectedEvent) => {
         // console.log("[user] biz packet data:", vchannDataEvent.data.data)
         var uint8array = vchannDataEvent.data.data
         // turn red
-        // for (var i = 0; i < uint8array.length; i += 4) {
-        //     uint8array[i + 0] = 255 - uint8array[i + 0];
-        //     uint8array[i + 1] = uint8array[i + 1];
-        //     uint8array[i + 2] = uint8array[i + 2];
-        //     uint8array[i + 3] = uint8array[i + 3];
-        // }
-        // revert color
         for (var i = 0; i < uint8array.length; i += 4) {
-            uint8array[i + 0] = uint8array[i + 0];
+            uint8array[i + 0] = 255 - uint8array[i + 0];
             uint8array[i + 1] = uint8array[i + 1];
             uint8array[i + 2] = uint8array[i + 2];
-            uint8array[i + 3] = 255 - uint8array[i + 3];
+            uint8array[i + 3] = uint8array[i + 3];
         }
+        // revert color
+        // for (var i = 0; i < uint8array.length; i += 4) {
+        //     uint8array[i + 0] = uint8array[i + 0];
+        //     uint8array[i + 1] = uint8array[i + 1];
+        //     uint8array[i + 2] = uint8array[i + 2];
+        //     uint8array[i + 3] = 255 - uint8array[i + 3];
+        // }
         var bizPacket = new Protocol.BizImageDataPacket(uint8array)
         server.sendViaVirtualChannel(1314, bizPacket, 5678)
     }, 5678, "1B")
-    // server.sendViaVirtualChannel(1314, new Protocol.BizOneBytePacket(1), 5678)
 }
 
 server.onclose = (onCloseEvent) => {

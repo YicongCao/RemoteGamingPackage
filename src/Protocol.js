@@ -1,6 +1,10 @@
 const Enums = require('./Enums')
 const Utils = require('./Utils')
 const magic = 0xf55f
+// 浏览器端引入 Buffer
+if (typeof (Buffer) == 'undefined') {
+    require('buffer')
+}
 
 /**
  * Base Layer Struct

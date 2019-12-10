@@ -20,6 +20,7 @@ server.onconnected = (onConnectedEvent) => {
             server.sendViaVirtualChannel(1234, bizPacket, 5678)
         }
     }, 5678, "1B")
+    // 开始传递数字
     server.sendViaVirtualChannel(1234, new Protocol.BizOneBytePacket(1), 5678)
 }
 
