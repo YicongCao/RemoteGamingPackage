@@ -1,6 +1,5 @@
 const Enums = require('./Enums')
 if (typeof (WebSocket) == 'undefined') {
-    var WebSocket = require('ws')
     isBrowser = false
 }
 const Protocol = require('./Protocol')
@@ -30,12 +29,12 @@ class BaseConnection {
     }
 
     /**
-     * Connect to server
+     * @param {WebSocket} ws websocket instance created by server
      * @param {string} url target url, e.g. ws://localhost:7667
      */
-    connect(url) {
+    connect(ws) {
         this._role = roleClient
-        if (!this._setConn(new WebSocket(url))) {
+        if (!this._setConn(ws)) {
             return
         }
 
@@ -298,10 +297,6 @@ class BaseConnection {
     }
 
     _setConn(ws, connidPara = invalidConnID) {
-        if (ws.__proto__ != WebSocket.prototype) {
-            console.error("conn para not instance of ws:", ws)
-            return false
-        }
         this.conn = ws
         this.conn.binaryType = 'arraybuffer'
         this.connid = connidPara
