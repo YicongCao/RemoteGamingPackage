@@ -1,4 +1,3 @@
-const BaseConnection = require('./BaseConnection')
 const EventArgs = require('./EventArgs')
 
 class VirtualChannel {

@@ -130,6 +130,7 @@ class BaseConnection {
             Enums.VirtualChannelLayerCommand.CHANNEL_ACQUIRE, vchannID, remark)
         this._vchannMap[vchannID] = new VirtualChannel(this, vchannID, remark, vchannCallback)
         this._sendPacket(acquirePacket)
+        return this._vchannMap[vchannID]
     }
 
     sendViaVirtualChannel(bizPacket, vchannID) {

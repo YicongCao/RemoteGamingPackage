@@ -83,10 +83,12 @@ class RGPModelServer {
             this._regcallback(client)
             client.wait(ws)
         }.bind(this))
+
+        console.log("Server listening at", port)
     }
 
     createVirtualChannel(clientConnID, vchannCallback, vchannID, remark = "") {
-        this.connmap[clientConnID].createVirtualChannel(vchannCallback, vchannID, remark)
+        return this.connmap[clientConnID].createVirtualChannel(vchannCallback, vchannID, remark)
     }
 
     sendViaVirtualChannel(clientConnID, bizPacket, vchannID) {

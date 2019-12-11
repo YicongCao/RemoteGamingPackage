@@ -67,7 +67,7 @@ class RGPModelClient {
     }
 
     createVirtualChannel(vchannCallback, vchannID, remark = "") {
-        this.conn.createVirtualChannel(vchannCallback, vchannID, remark)
+        return this.conn.createVirtualChannel(vchannCallback, vchannID, remark)
     }
 
     sendViaVirtualChannel(bizPacket, vchannID) {
