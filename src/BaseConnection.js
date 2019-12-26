@@ -314,7 +314,7 @@ class BaseConnection {
             return
         }
         var length = arrayBuffer.byteLength
-        console.log("sending", length, "byte long data")
+        // console.log("sending", length, "byte long data")
         this.conn.send(arrayBuffer)
     }
 
@@ -353,7 +353,7 @@ class BaseConnection {
             console.error("data received not arraybuffer")
             return
         }
-        console.log("received", data.byteLength, "byte long data")
+        // console.log("received", data.byteLength, "byte long data")
         // console.log("[packet]", Utils.FormatArrayBuffer(data))
         // parse all layers
         var rgpDataPackets = Protocol.ProtocolSerializer.UnpackAllAsMap(data)
