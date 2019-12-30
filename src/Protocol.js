@@ -160,7 +160,7 @@ class BizDrawRectPacket extends BusinessLayerPacketTemplate {
 
 class BizBulkStatusPacket extends BusinessLayerPacketTemplate {
     constructor() {
-        super(Enums.BusinessLogicType.PONG_BULK_STATUS, 9)
+        super(Enums.BusinessLogicType.PONG_BULK_STATUS, 10)
         this.x = 0
         this.y = 0
         this.width = 0
@@ -169,10 +169,11 @@ class BizBulkStatusPacket extends BusinessLayerPacketTemplate {
         this.score = 0
         this.vx = 0
         this.vy = 0
+        this.reserved = 0
     }
 
     serialize() {
-        var baseBuffer = new Uint8Array(9)
+        var baseBuffer = new Uint8Array(10)
         baseBuffer[0] = this.x & 0x00ff
         baseBuffer[1] = ((this.x & 0x0f00) >> 4) + ((this.y & 0x0f00) >> 8)
         baseBuffer[2] = this.y & 0x00ff
@@ -182,6 +183,7 @@ class BizBulkStatusPacket extends BusinessLayerPacketTemplate {
         baseBuffer[6] = this.score & 0xff
         baseBuffer[7] = this.vx & 0xff
         baseBuffer[8] = this.vy & 0xff
+        baseBuffer[9] = this.reserved & 0xff
         return baseBuffer
     }
 
@@ -195,6 +197,7 @@ class BizBulkStatusPacket extends BusinessLayerPacketTemplate {
         this.score = baseBuffer[6]
         this.vx = baseBuffer[7]
         this.vy = baseBuffer[8]
+        this.reserved = baseBuffer[9]
     }
 }
 
