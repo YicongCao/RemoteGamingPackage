@@ -384,6 +384,10 @@ class ProtocolSerializer {
                 var bizDrawRectPacket = new BizDrawRectPacket()
                 bizDrawRectPacket.unserialize(payloadBuffer.buffer)
                 return bizDrawRectPacket
+            case Enums.BusinessLogicType.PONG_BULK_STATUS:
+                var bizBulkStatusPacket = new BizBulkStatusPacket()
+                bizBulkStatusPacket.unserialize(payloadBuffer.buffer)
+                return bizBulkStatusPacket
             default:
                 console.error("unknown biz logic type:", bizLogicType)
                 return null
