@@ -1,6 +1,6 @@
 {
   "name": "remote-gaming-package",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "provide cloud gaming essentials.",
   "main": "index.js",
   "scripts": {
