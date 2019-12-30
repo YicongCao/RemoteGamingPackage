@@ -158,6 +158,46 @@ class BizDrawRectPacket extends BusinessLayerPacketTemplate {
     }
 }
 
+class BizBulkStatusPacket extends BusinessLayerPacketTemplate {
+    constructor() {
+        super(Enums.BusinessLogicType.PONG_BULK_STATUS, 9)
+        this.x = 0
+        this.y = 0
+        this.width = 0
+        this.height = 0
+        this.role = 0
+        this.score = 0
+        this.vx = 0
+        this.vy = 0
+    }
+
+    serialize() {
+        var baseBuffer = new Uint8Array(9)
+        baseBuffer[0] = this.x & 0x00ff
+        baseBuffer[1] = ((this.x & 0x0f00) >> 4) + ((this.y & 0x0f00) >> 8)
+        baseBuffer[2] = this.y & 0x00ff
+        baseBuffer[3] = this.width & 0xff
+        baseBuffer[4] = this.height & 0xff
+        baseBuffer[5] = this.role & 0xff
+        baseBuffer[6] = this.score & 0xff
+        baseBuffer[7] = this.vx & 0xff
+        baseBuffer[8] = this.vy & 0xff
+        return baseBuffer
+    }
+
+    unserialize(arrayBuffer) {
+        var baseBuffer = new Uint8Array(arrayBuffer)
+        this.x = baseBuffer[0] + ((baseBuffer[1] & 0xf0) << 4)
+        this.y = baseBuffer[2] + ((baseBuffer[1] & 0x0f) << 8)
+        this.width = baseBuffer[3]
+        this.height = baseBuffer[4]
+        this.role = baseBuffer[5]
+        this.score = baseBuffer[6]
+        this.vx = baseBuffer[7]
+        this.vy = baseBuffer[8]
+    }
+}
+
 /**
  * Pack & Unpack RGP Protocol Bytes, using network order
  */
@@ -507,4 +547,5 @@ module.exports = {
     BizImageDataPacket: BizImageDataPacket,
     BizMousePosPacket: BizMousePosPacket,
     BizDrawRectPacket: BizDrawRectPacket,
+    BizBulkStatusPacket: BizBulkStatusPacket,
 }
