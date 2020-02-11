@@ -289,6 +289,9 @@ class BaseConnection {
     }
 
     _sendRaw(arrayBuffer) {
+        if (this.conn.readyState != WebSocket.OPEN) {
+            console.error("websocket unready:", this.conn.readyState)
+        }
         if (arrayBuffer instanceof Uint8Array) {
             arrayBuffer = arrayBuffer.buffer
         }
@@ -303,6 +306,10 @@ class BaseConnection {
 
     _sendPacket(rgpPacket, vchannid = 0xffffffff) {
         var bufferToSend = null
+        if (this.status != Enums.Status.CONNECTED && !(rgpPacket instanceof Protocol.BaseLayerPacket)) {
+            console.warn("baseconn unavailable:", this.status)
+            return
+        }
         if (rgpPacket instanceof Protocol.BaseLayerPacket) {
             bufferToSend = Protocol.ProtocolSerializer.PackBaseLayer(rgpPacket)
             this._sendRaw(bufferToSend)
