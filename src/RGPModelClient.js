@@ -1,5 +1,6 @@
 const BaseConnection = require('./BaseConnection')
 const EventArgs = require('./EventArgs')
+// const WebSocket = require('ws') // 浏览器上自带 websocket
 
 class RGPModelClient {
     constructor() {
@@ -62,11 +63,11 @@ class RGPModelClient {
 
     connect(url) {
         this._regcallback(this.conn)
-        this.conn.connect(url)
+        this.conn.connect(new WebSocket(url))
     }
 
     createVirtualChannel(vchannCallback, vchannID, remark = "") {
-        this.conn.createVirtualChannel(vchannCallback, vchannID, remark)
+        return this.conn.createVirtualChannel(vchannCallback, vchannID, remark)
     }
 
     sendViaVirtualChannel(bizPacket, vchannID) {

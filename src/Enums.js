@@ -60,6 +60,7 @@ const Consts = {
         CONTROL_DATA:       4,
         PONG_POS:           5,
         PONG_DRAW:          6,
+        PONG_BULK_STATUS:   7,
     },
     ErrorCodes: {
         SUCCEEDED:                  0,
